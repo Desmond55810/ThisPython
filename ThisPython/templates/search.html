@@ -1,0 +1,8 @@
+{% extends 'layout.html' %}
+{% block content %}
+	{% for entity in entities %}
+    <p>
+    {{ post.author.username }} says: <b>{{ post.body }}</b>
+    </p>
+    {% endfor %}
+{% endblock content %}
