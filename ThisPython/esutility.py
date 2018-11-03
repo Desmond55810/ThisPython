@@ -22,13 +22,12 @@ def create_data(md5, content, file_name, path_name, file_type):
     print(es.indices.create(index='documents', ignore=400))
 
     # datetimes will be serialized
-    es.index(index="documents", doc_type="_doc", body=
-    {
-    "md5_hash": md5,
-    "content": content,
-    "file_name": file_name,
-    "path_name": path_name,
-    "file_type": file_type,
-    "last_edit_date": datetime.now()
-    }
+    es.index(index="documents", doc_type="_doc", body={
+            "md5_hash": md5,
+            "content": content,
+            "file_name": file_name,
+            "path_name": path_name,
+            "file_type": file_type,
+            "last_edit_date": datetime.now()
+        }
     )

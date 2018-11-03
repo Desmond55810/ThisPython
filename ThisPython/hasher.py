@@ -1,6 +1,4 @@
-import sys
-import os
-import hashlib
+import hashlib, os
 
 def md5_file_hasher(abspath):
     # BUF_SIZE is totally arbitrary, change for your app!

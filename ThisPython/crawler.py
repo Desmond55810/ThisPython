@@ -1,14 +1,9 @@
-from watchdog import *
-from watchdog.events import *
-import os
-import sys
-import time
-import datetime
-import logging
+import os, time
+from datetime import datetime
+from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
-
-from ocrutility import *
+from indexer import indexing
 
 def craw_dir(pathname):
     abs_path_list = []
@@ -34,11 +29,10 @@ class TestEventHandler(PatternMatchingEventHandler):
     def on_created(self, event):
         path = event.src_path        
         if path != self.last_created:
-            print("str(datetime.datetime.now())" + " " + str(event))
+            print(str(datetime.now()) + " " + str(event))
             time.sleep(2)
-            import ocrutility
 
-            ocrutilityX(path)
+            indexing(path)
 
             self.last_created = None
 
@@ -46,18 +40,26 @@ class TestEventHandler(PatternMatchingEventHandler):
         path = event.src_path        
         if path != self.last_deleted:
             time.sleep(2)
-            print("str(datetime.datetime.now())" + " " + str(event))
+            print(str(datetime.now()) + " " + str(event))
             self.last_deleted = None
 
 def start_watchdog(path):
     event_handler = TestEventHandler(patterns=["*"])
     observer = Observer()
     observer.schedule(event_handler, path=path, recursive=True)
+    
+    # creates a new thread
     observer.start()
 
+    # keeps main thread running
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
+        # does some work before the thread terminate.
         observer.stop()
+
+    # needed to proper end a thread for "it blocks the 
+    # thread in which you're making the call, until 
+    # (self.observer) is finished.
     observer.join()

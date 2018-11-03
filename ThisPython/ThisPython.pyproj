@@ -37,6 +37,9 @@
     <Compile Include="constants.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="indexer.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="ocrutility.py" />
     <Compile Include="run.py">
       <SubType>Code</SubType>
