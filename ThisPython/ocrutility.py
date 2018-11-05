@@ -16,11 +16,11 @@ from constants import *
 def ocr_text(abspath):
     root_tmp, ext_tmp = os.path.splitext(abspath)
 
-    # Setup two lists which will be used to hold our images and final_text
-    req_image = []
-    final_text = []
-
     if ext_tmp in DOC_FORMATS:
+        # Setup two lists which will be used to hold our images and final_text
+        req_image = []
+        final_text = []
+
         # Open the PDF file using wand and convert it
         with ImageWand(filename=abspath, resolution=300) as img_ori:
             with img_ori.convert('png') as image_png:

@@ -1,8 +1,7 @@
-from flask import Flask, render_template, request, url_for
-import requests
+import os
 import threading
-from crawler import *
-
+from flask import Flask, render_template, request, url_for
+from crawler import start_watchdog
 app = Flask(__name__)
 
 @app.route("/")
@@ -16,8 +15,6 @@ def search_result():
         return search
     else:
         return render_template('index.html')
-
-import asyncio
 
 def flaskThread():
     # app.run(debug=True)
