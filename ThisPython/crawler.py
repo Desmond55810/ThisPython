@@ -1,22 +1,13 @@
-import os, time
+import os, time, sys
 from datetime import datetime
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 from indexer import indexing
 
-def craw_dir(pathname):
-    abs_path_list = []
-    for root, dirs, files in os.walk(pathname, topdown=True):
-        for file in files:
-            abs_path = os.path.join(root, file) # combine path and filename
-            abs_path_list.append(abs_path)
-    return abs_path_list
-
-
 def walkdir(folder):
     """Walk through each files in a directory"""
-    for dirpath, dirs, files in os.walk(folder):
+    for dirpath, dirs, files in os.walk(folder, topdown=True):
         for filename in files:
             yield os.path.abspath(os.path.join(dirpath, filename))
 
@@ -63,3 +54,10 @@ def start_watchdog(path):
     # thread in which you're making the call, until 
     # (self.observer) is finished.
     observer.join()
+
+    print("Stop monitoring folder")
+
+    try:   
+        sys.exit(0)
+    except SystemExit as e:
+        print("Please quit Python manually."+"\n")
