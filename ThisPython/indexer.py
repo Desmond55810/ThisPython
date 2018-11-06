@@ -6,6 +6,9 @@ from hasher import md5_file_hasher
 from ocrutility import ocr_text
 from datetime import datetime
 from elasticsearch import Elasticsearch
+from multiprocessing.pool import ThreadPool
+
+pool = ThreadPool(processes=1)
 
 def disable_readonly_mode():
     url = 'http://localhost:9200/_all/_settings'
@@ -23,8 +26,15 @@ def indexing(abspath):
             root_tmp, ext_tmp = os.path.splitext(abspath)
             ext_tmp = ext_tmp.lower()
             md5_digest = md5_file_hasher(abspath)
+
+            # submit task to thread pool
+            async_result = pool.apply_async(func=predict, args=(abspath,)) # type list
+
+            # do some other stuff in the main process
             text_content = ocr_text(abspath) # type str
-            img_json = predict(abspath) # type list
+
+            # get result from thread pool
+            img_json = async_result.get()
 
             # by default we connect to localhost:9200
             es = Elasticsearch()
