@@ -27,14 +27,8 @@ def indexing(abspath):
             ext_tmp = ext_tmp.lower()
             md5_digest = md5_file_hasher(abspath)
 
-            # submit task to thread pool
-            async_result = pool.apply_async(func=predict, args=(abspath,)) # type list
-
-            # do some other stuff in the main process
             text_content = ocr_text(abspath) # type str
-
-            # get result from thread pool
-            img_json = async_result.get()
+            img_json = predict(abspath) # type list
 
             # by default we connect to localhost:9200
             es = Elasticsearch()

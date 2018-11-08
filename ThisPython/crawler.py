@@ -4,6 +4,7 @@ from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 from indexer import indexing
+from multiprocessing import Pool
 
 def walkdir(folder):
     """Walk through each files in a directory"""
@@ -14,18 +15,35 @@ def walkdir(folder):
 class TestEventHandler(PatternMatchingEventHandler):
     def __init__(self, *args, **kwargs):
         super(TestEventHandler, self).__init__(*args, **kwargs)
+
+        # dont let same event(refer to same file) fire mutiple time
         self.last_created = None
+        self.last_modified = None
         self.last_deleted = None
+
+        #use all available cores
+        self.crawler_pool = Pool()
 
     def on_created(self, event):
         path = event.src_path        
         if path != self.last_created:
             print(str(datetime.now()) + " " + str(event))
-            time.sleep(2)
-
-            indexing(path)
-
+            time.sleep(2) # wait file finish copy
+            self.crawler_pool.apply_async(func=indexing, args=(path,)) # submit task to pool
             self.last_created = None
+
+    def on_modified(self, event):
+        path = event.src_path
+        print(str(datetime.now()) + " " + str(event))
+        if path != self.last_modified:
+            # file not found in database?
+            # probably new file, ignore it
+            # let on_created event handler it
+
+
+            # file has been index before
+            # reindex the file
+            self.last_modified = None
 
     def on_deleted(self, event):
         path = event.src_path        
@@ -34,6 +52,9 @@ class TestEventHandler(PatternMatchingEventHandler):
             print(str(datetime.now()) + " " + str(event))
             self.last_deleted = None
 
+# Call watchdog in main thread only. 
+# If call in seperate thread/process,
+# the watchdog may duplicate itself.
 def start_watchdog(path):
     event_handler = TestEventHandler(patterns=["*"])
     observer = Observer()

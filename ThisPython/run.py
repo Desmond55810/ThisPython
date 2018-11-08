@@ -1,26 +1,15 @@
+import argparse
 import os
 import threading
-from flask import Flask, render_template, request, url_for
 from crawler import start_watchdog
-app = Flask(__name__)
-
-@app.route("/")
-def index():
-    return render_template('index.html')
-
-@app.route('/search', methods=['GET', 'POST'])
-def search_result():
-    if 'q' in request.values:
-        search = str(request.values.get('q', 0))
-        return search
-    else:
-        return render_template('index.html')
-
-def flaskThread():
-    # app.run(debug=True)
-    app.run()
+from frontend import flaskThread
 
 if __name__ == "__main__":
+    #parser = argparse.ArgumentParser(description='Description of your program')
+    #parser.add_argument('-d','--directory', help='Description for directory argument', required=True)
+    #args = parser.parse_args()
+    #scan_dir = args.d
+
     threading.Thread(target=flaskThread).start()
     scandoc = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scandoc")
     start_watchdog(scandoc)
