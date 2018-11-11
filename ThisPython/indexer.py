@@ -7,8 +7,8 @@ from ocrutility import ocr_text
 from datetime import datetime
 from elasticsearch import Elasticsearch
 from multiprocessing.pool import ThreadPool
-
-pool = ThreadPool(processes=1)
+from constants import ES_DOC_TYPE, ES_URL_INDEX
+from multiprocessing import Pool
 
 def disable_readonly_mode():
     url = 'http://localhost:9200/_all/_settings'
@@ -17,7 +17,7 @@ def disable_readonly_mode():
     r = requests.put(url, headers=headers, data=data)
     print(r)
 
-def indexing(abspath):    
+def index(abspath):    
     cpt = [abspath]
     new_cpt = [x for x in cpt if x.endswith(tuple(IMAGE_FORMATS)) or x.endswith(tuple(DOC_FORMATS))]
 
@@ -27,22 +27,33 @@ def indexing(abspath):
             ext_tmp = ext_tmp.lower()
             md5_digest = md5_file_hasher(abspath)
 
-            text_content = ocr_text(abspath) # type str
-            img_json = predict(abspath) # type list
+            pool = Pool(processes=1)
+
+            if ext_tmp in IMAGE_FORMATS:
+                # submit task to thread pool
+                async_result = pool.apply_async(func=predict, args=(abspath,)) # type list
+            else:
+                img_json = []
+
+            # do some other stuff in the main process
+            if ext_tmp in DOC_FORMATS or ext_tmp in IMAGE_FORMATS:
+                text_content = ocr_text(abspath) # type str
+            else:
+                text_content = ""
+
+            # get result from pool
+            img_json = async_result.get()
+
+            disable_readonly_mode()
 
             # by default we connect to localhost:9200
             es = Elasticsearch()
 
-            disable_readonly_mode()
-
-            es_url_index = 'documents'
-            es_doc_type = '_doc'
-
             # dynamic mapping
             # datetimes will be serialized
-            es.index(index=es_url_index, doc_type=es_doc_type, body={
+            es.index(index=ES_URL_INDEX, doc_type=ES_DOC_TYPE, body={
                     "md5_hash": md5_digest,
-                    "content": content,
+                    "content": text_content,
                     "keyword": [],
                     "tag": img_json,
                     "file_name": os.path.basename(path),
@@ -55,3 +66,51 @@ def indexing(abspath):
             )
         except OSError as e:
             print(str(e)+"\n")
+        print("End index\n")
+
+def check_md5_exist(abspath):
+    try:
+        # by default we connect to localhost:9200
+        es = Elasticsearch()
+        md5_digest = md5_file_hasher(abspath)
+        res = es.search(index=ES_URL_INDEX, doc_type=ES_DOC_TYPE, body={
+                        "query": {
+                            "match": { "md5_hash": md5_digest }
+                            }
+                        })
+    except Exception as e:
+        print(str(e) + "\n")
+        print("def check_exist")
+        return 0
+    return res['hits']['total']
+
+def check_path_exist(abspath):
+    try:
+        # by default we connect to localhost:9200
+        es = Elasticsearch()
+        md5_digest = md5_file_hasher(abspath)
+        res = es.search(index=ES_URL_INDEX, doc_type=ES_DOC_TYPE, body={
+                        "query": {
+                            "match": { "path_name": abspath }
+                            }
+                        })
+    except Exception as e:
+        print(str(e) + "\n")
+        print("def check_exist")
+        return 0
+    return res['hits']['total']
+
+def reindex(abspath):
+    # delete the info first
+    # then create new one 
+    unindex(abspath)
+    index(abspath)
+
+def unindex(abspath):
+    # by default we connect to localhost:9200
+    es = Elasticsearch()
+    es.delete_by_query(index=ES_URL_INDEX, doc_type=ES_DOC_TYPE, body={
+                    "query": {
+                        "match": { "path_name": abspath }
+                        }
+                    })

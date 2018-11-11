@@ -3,7 +3,7 @@ from datetime import datetime
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
-from indexer import indexing
+from indexer import index, unindex, check_path_exist, check_md5_exist, reindex
 from multiprocessing import Pool
 
 def walkdir(folder):
@@ -17,40 +17,46 @@ class TestEventHandler(PatternMatchingEventHandler):
         super(TestEventHandler, self).__init__(*args, **kwargs)
 
         # dont let same event(refer to same file) fire mutiple time
-        self.last_created = None
+        # no longer used because failure in implement multiprocessing
         self.last_modified = None
         self.last_deleted = None
 
-        #use all available cores
-        self.crawler_pool = Pool()
-
-    def on_created(self, event):
-        path = event.src_path        
-        if path != self.last_created:
-            print(str(datetime.now()) + " " + str(event))
-            time.sleep(2) # wait file finish copy
-            self.crawler_pool.apply_async(func=indexing, args=(path,)) # submit task to pool
-            self.last_created = None
-
     def on_modified(self, event):
         path = event.src_path
-        print(str(datetime.now()) + " " + str(event))
         if path != self.last_modified:
-            # file not found in database?
-            # probably new file, ignore it
-            # let on_created event handler it
+            time.sleep(2)
+            print(str(datetime.now()) + " " + str(event))
+            hit_path_total = check_path_exist(path)
+            hit_md5_total = check_md5_exist(path)
 
+            if hit_path_total >= 1 and hit_md5_total <= 0:
+                # deal with content change
+                reindex(path)
+            elif (hit_path_total <= 0 and hit_md5_total <= 0):
+                # deal with new file
+                index(path)
+            else:
+                # deal with file timestamp changing
+                # do nothing
 
-            # file has been index before
-            # reindex the file
+                # deal with moved file
+                # do nothing
+                # trigger delete event and modified event
+                pass
+
             self.last_modified = None
+        else:
+            pass
 
     def on_deleted(self, event):
         path = event.src_path        
         if path != self.last_deleted:
             time.sleep(2)
             print(str(datetime.now()) + " " + str(event))
+            unindex(path)
             self.last_deleted = None
+        else:
+            pass
 
 # Call watchdog in main thread only. 
 # If call in seperate thread/process,
