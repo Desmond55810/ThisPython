@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, url_for
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=r"F:\ThisPython\ThisPython\scandoc")
 
 def flaskThread():
+    # app.config['STATIC_FOLDER'] = static_folder
     # app.run(debug=True)
-    app.run(host='0.0.0.0') # listen for all host names
+    app.run(host='0.0.0.0') # bind flask to all network adapters
 
 @app.route("/")
 def index():
