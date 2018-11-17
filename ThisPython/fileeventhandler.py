@@ -29,37 +29,39 @@ class FileEventHandler(PatternMatchingEventHandler):
 
         path = event.src_path
         if path != self.last_file_modified:
-                    MY_OS_IS = platform.system()
-        if MY_OS_IS == "Windows":
-            # wait longer and hopefully the file has finish copy
-            time.sleep(5)
-        elif MY_OS_IS == "Linux":
-            # https://stackoverflow.com/questions/32092645/python-watchdog-windows-wait-till-copy-finishes
-            # just wait until the file is finished being copied, via watching the filesize.
-            historicalSize = -1
-            while (historicalSize != os.path.getsize(path)):
-                    historicalSize = os.path.getsize(path)
-                    time.sleep(1)
-        else:
-            sys.exit("Unsupported operating system platform, expecting Windows or Linux")
+            MY_OS_IS = platform.system()
+            if MY_OS_IS == "Windows":
+                # wait longer and hopefully the file has finish copy
+                time.sleep(2)
+            elif MY_OS_IS == "Linux":
+                # https://stackoverflow.com/questions/32092645/python-watchdog-windows-wait-till-copy-finishes
+                # just wait until the file is finished being copied, via watching the filesize.
+                historicalSize = -1
+                while (historicalSize != os.path.getsize(path)):
+                        historicalSize = os.path.getsize(path)
+                        time.sleep(1)
+            else:
+                sys.exit("Unsupported operating system platform, expecting Windows or Linux")
 
-        hit_path_total = self.indexer.check_db_path_exist(path)
-        hit_md5_total = self.indexer.check_db_md5_exist(path)
+            hit_path_total = self.indexer.check_db_path_exist(path)
+            hit_md5_total = self.indexer.check_db_md5_exist(path)
 
-        if hit_path_total >= 1 and hit_md5_total <= 0:
-            # deal with content change
-            self.print_event(event)
-            self.indexer.reindex(path)
-        elif (hit_path_total <= 0 and hit_md5_total <= 0):
-            # deal with new file
-            self.print_event(event)
-            self.indexer.index(path)
+            if hit_path_total >= 1 and hit_md5_total <= 0:
+                # deal with content change
+                self.print_event(event)
+                self.indexer.reindex(path)
+            elif (hit_path_total <= 0 and hit_md5_total <= 0):
+                # deal with new file
+                self.print_event(event)
+                self.indexer.index(path)
 
-            # deal with file timestamp changing
-            # do nothing
+                # deal with file timestamp changing
+                # do nothing
 
-            # deal with moved file
-            # do trigger delete event and then modified event
+                # deal with moved file
+                # do trigger delete event and then modified event
+            else:
+                pass
         else:
             pass
         self.last_file_modified = None
