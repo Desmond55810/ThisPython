@@ -81,29 +81,31 @@ class Indexer(object):
     def unindex(self, abspath):
         self.es.delete_by_query(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                         "query": {
-                            "match": { "path_name": abspath }
+                            "match_phrase": { "path_name": abspath }
                             }
                         })
 
     def check_db_md5_exist(self, abspath):
         try:
             md5_digest = Utility.hash_md5(abspath)
-            res = self.es.search(index=ES_URL_INDEX, doc_type=ES_DOC_TYPE, body={
+            res = self.es.search(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                             "query": {
-                                "match": { "md5_hash": md5_digest }
+                                "match_phrase": { "md5_hash": md5_digest }
                                 }
                             })
         except Exception as e:
+            print(str(e))
             return 0
         return res['hits']['total']
 
     def check_db_path_exist(self, abspath):
         try:
-            res = self.es.search(index=ES_URL_INDEX, doc_type=ES_DOC_TYPE, body={
+            res = self.es.search(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                             "query": {
-                                "match": { "path_name": abspath }
+                                "match_phrase": { "path_name": abspath }
                                 }
                             })
         except Exception as e:
+            print(str(e))
             return 0
         return res['hits']['total']
