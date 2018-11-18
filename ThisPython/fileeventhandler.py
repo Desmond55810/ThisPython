@@ -18,16 +18,27 @@ class FileEventHandler(PatternMatchingEventHandler):
         # event.src_path
         #     path/to/observed/file
 
-        # dont let same event(refer to same file) fire mutiple time
         self.indexer = Indexer()
+
+        # dont let same event(refer to same file) fire mutiple time
         self.last_file_modified = None
         self.last_file_deleted = None
 
     def on_modified(self, event):
         if event.is_directory:
             return
+        else:
+            pass
 
         path = event.src_path
+
+        if not os.path.exists(path):
+            self.last_file_modified = None
+            self.print_event("File \"" + path + "\" no longer exists, probably deleted or moved")
+            return
+        else:
+            pass
+
         if path != self.last_file_modified:
             MY_OS_IS = platform.system()
             if MY_OS_IS == "Windows":
@@ -38,29 +49,30 @@ class FileEventHandler(PatternMatchingEventHandler):
                 # just wait until the file is finished being copied, via watching the filesize.
                 historicalSize = -1
                 while (historicalSize != os.path.getsize(path)):
-                        historicalSize = os.path.getsize(path)
-                        time.sleep(1)
+                    historicalSize = os.path.getsize(path)
+                    time.sleep(1)
             else:
                 sys.exit("Unsupported operating system platform, expecting Windows or Linux")
 
             hit_path_total = self.indexer.check_db_path_exist(path)
             hit_md5_total = self.indexer.check_db_md5_exist(path)
 
-            if hit_path_total >= 1 and hit_md5_total <= 0:
+            if (hit_path_total >= 1) and (hit_md5_total <= 0):
                 # deal with content change
                 self.print_event(event)
                 self.indexer.reindex(path)
-            elif (hit_path_total <= 0 and hit_md5_total <= 0):
+                self.print_event("File \"" + path + "\" reindexed.")
+            elif (hit_path_total <= 0) and (hit_md5_total <= 0):
                 # deal with new file
                 self.print_event(event)
                 self.indexer.index(path)
-
+                self.print_event("File \"" + path + "\" indexed.")
+            else:
                 # deal with file timestamp changing
                 # do nothing
 
                 # deal with moved file
                 # do trigger delete event and then modified event
-            else:
                 pass
         else:
             pass
@@ -69,11 +81,20 @@ class FileEventHandler(PatternMatchingEventHandler):
     def on_deleted(self, event):
         if event.is_directory:
             return
+        else:
+            pass
 
-        path = event.src_path        
+        path = event.src_path   
+        
         if path != self.last_file_deleted:
-            self.print_event(event)
-            self.indexer.Indexer.unindex(path)
+            hit_path_total = self.indexer.check_db_path_exist(path)
+
+            if (hit_path_total >= 1):
+                self.print_event(event)
+                self.indexer.unindex(path)
+                self.print_event("File \"" + path + "\" deindexed.")
+            else:
+                self.print_event("File \"" + path + "\" deleted, but there is no record in database to be removed")
         else:
             pass
         self.last_file_deleted = None
