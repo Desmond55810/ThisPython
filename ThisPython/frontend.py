@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request, url_for
 
-app = Flask(__name__, static_folder=r"F:\ThisPython\ThisPython\scandoc")
+app = Flask(__name__)
 
-def flaskThread():
-    # app.config['STATIC_FOLDER'] = static_folder
+def flaskThread(static_folder):
+    app.config['STATIC_FOLDER'] = static_folder
     # app.run(debug=True)
     app.run(host='0.0.0.0') # bind flask to all network adapters
 

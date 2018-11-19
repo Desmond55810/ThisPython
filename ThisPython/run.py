@@ -46,9 +46,8 @@ if __name__ == "__main__":
         pass
     
     #threading.Thread(target=Crawler.walk_dir).start()
-    threading.Thread(target=flaskThread).start()
+    threading.Thread(target=flaskThread, args=[path]).start()
 
-    #path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scandoc")
 
     try:
         crawler = Crawler(path)
@@ -58,5 +57,3 @@ if __name__ == "__main__":
         print(str(e))
         sys.exit(" * System total failure, quit")
     print(" * System is ready")
-
-    #crawler.walk_dir()

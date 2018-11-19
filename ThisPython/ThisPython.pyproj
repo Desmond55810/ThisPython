@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>a06b233d-d3fb-43b0-b0dd-454dca846f46</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>imgutility.py</StartupFile>
+    <StartupFile>run.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -25,26 +25,28 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="hasher.py">
+    <Compile Include="constants.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="FileEventHandler.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="frontend.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="crawler.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="esutility.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="constants.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="imgutility.py">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="indexer.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ocrutility.py" />
     <Compile Include="run.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="extractor.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="utility.py">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
@@ -66,6 +68,9 @@
     <Folder Include="templates\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="config.json">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="static\theme.css">
       <SubType>Code</SubType>
     </Content>

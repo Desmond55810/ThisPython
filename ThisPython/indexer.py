@@ -6,6 +6,7 @@ from elasticsearch import Elasticsearch
 from multiprocessing.pool import ThreadPool
 from multiprocessing import Pool
 import constants
+from extractor import Extractor
 
 class Indexer(object):
     def __init__(self):
@@ -14,10 +15,13 @@ class Indexer(object):
 
         # test if the elasticsearch is ok or not
         if not self.es.ping():
-            raise ValueError("ElasticSearch connection failed")
+            raise ValueError("*** ElasticSearch connection failed ***")
 
         # ignore 400 cause by IndexAlreadyExistsException when creating an index
         self.es.indices.create(index=constants.ES_URL_INDEX, ignore=400)
+        
+        self.ex = Extractor()
+        
 
     def disable_readonly_mode(self):
         url = 'http://localhost:9200/_all/_settings'
@@ -29,28 +33,16 @@ class Indexer(object):
         cpt = [abspath]
         new_cpt = [x for x in cpt if x.endswith(tuple(constants.IMAGE_FORMATS)) or x.endswith(tuple(constants.DOC_FORMATS))]
 
+        if (len(new_cpt) <= 0):
+            return False
+
         for path in new_cpt:
             try:
                 root_tmp, ext_tmp = os.path.splitext(abspath)
                 ext_tmp_lower = ext_tmp.lower()
                 md5_digest = Utility.hash_md5(abspath)
 
-                pool = Pool(processes=1)
-
-                if ext_tmp_lower in constants.IMAGE_FORMATS:
-                    # submit task to thread pool
-                    async_result = pool.apply_async(func=Utility.img_predict, args=(abspath,)) # type list
-                else:
-                    img_json = []
-
-                # do some other stuff in the main process
-                if ext_tmp_lower in constants.DOC_FORMATS or ext_tmp in constants.IMAGE_FORMATS:
-                    text_content = Utility.ocr_text(abspath) # type str
-                else:
-                    text_content = ""
-
-                # get result from pool
-                img_json = async_result.get()
+                text_content, img_json = self.ex.process(abspath)
 
                 self.disable_readonly_mode()
 
@@ -69,8 +61,10 @@ class Indexer(object):
                         "size_in_byte":os.path.getsize(abspath),
                     }
                 )
+                return True
             except OSError as e:
                 print(str(e))
+                return False
 
     def reindex(self, abspath):
         # delete the info first

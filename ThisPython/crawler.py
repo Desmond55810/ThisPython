@@ -15,8 +15,8 @@ class Crawler(object):
         self.observer.schedule(self.event_handler, path=self.path, recursive=True)
 
     # Walk through each files in a directory
-    @staticmethod
     def walk_dir(self):
+
         #print("Make a quick scan and index files in the path \"" + self.path + "\"")
         #for dirpath, dirs, files in os.walk(self.path, topdown=True):
         #    for filename in files:
