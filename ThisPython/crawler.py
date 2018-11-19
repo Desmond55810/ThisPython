@@ -2,7 +2,7 @@ from watchdog.observers import Observer
 #from fileeventhandler import FileEventHandler
 # from fileeventhandler import FileEventHandler
 from multiprocessing import Pool
-from FileEventHandler import FileEventHandler
+from handler import FileEventHandler
 import os
 import time
 import sys
