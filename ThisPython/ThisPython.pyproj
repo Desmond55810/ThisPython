@@ -28,9 +28,6 @@
     <Compile Include="constants.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="handler.py">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="frontend.py">
       <SubType>Code</SubType>
     </Compile>

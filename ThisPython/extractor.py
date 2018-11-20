@@ -11,12 +11,10 @@ import subprocess
 import jellyfish
 
 class Extractor(object):
-    def __init__(self):
-        # luminoth (image object detection) setup
-        checkpoint = 'fast'
-        config = get_checkpoint_config(checkpoint)
-        self.predictor_network = PredictorNetwork(config)
+    # luminoth (image object detection) setup
+    predictor_network = PredictorNetwork(get_checkpoint_config('fast'))
 
+    def __init__(self):
         # cross platform check
         self.MY_OS_IS = platform.system()
 
@@ -56,7 +54,7 @@ class Extractor(object):
 
     def img_predict(self, img_pil):
         image = img_pil.convert('RGB')
-        objects = self.predictor_network.predict_image(image)
+        objects = Extractor.predictor_network.predict_image(image)
         return objects
 
     def process(self, abspath):
@@ -95,4 +93,4 @@ class Extractor(object):
         for word in splitted_full_text:
             soundex_list.append(jellyfish.soundex(word))
 
-        return full_text_data, soundex_list, img_json
+        return full_text_data, soundex_list, img_json, abspath

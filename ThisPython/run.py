@@ -12,7 +12,7 @@ else:
 import argparse
 import os
 import threading
-from crawler import Crawler
+from crawler import Crawler, EventCrawler, FileCrawler
 from frontend import flaskThread
 import json
 import os.path
@@ -45,15 +45,17 @@ if __name__ == "__main__":
     else:
         pass
     
-    #threading.Thread(target=Crawler.walk_dir).start()
     threading.Thread(target=flaskThread, args=[path]).start()
 
 
     try:
-        crawler = Crawler(path)
-        crawler.start_watchdog()
+        event_crawler = EventCrawler(path)
+        file_crawler = FileCrawler(path)
         print(" * Crawler and ElasticSearch components are ready")
     except ValueError as e:
         print(str(e))
         sys.exit(" * System total failure, quit")
     print(" * System is ready")
+
+    event_crawler.start()
+    file_crawler.start()

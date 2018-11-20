@@ -12,16 +12,14 @@ class Indexer(object):
     def __init__(self):
         # by default we connect to localhost:9200
         self.es = Elasticsearch()
+        self.ex = Extractor()
 
         # test if the elasticsearch is ok or not
         if not self.es.ping():
             raise ValueError("*** ElasticSearch connection failed ***")
 
         # ignore 400 cause by IndexAlreadyExistsException when creating an index
-        self.es.indices.create(index=constants.ES_URL_INDEX, ignore=400)
-        
-        self.ex = Extractor()
-        
+        self.es.indices.create(index=constants.ES_URL_INDEX, ignore=400) 
 
     def disable_readonly_mode(self):
         url = 'http://localhost:9200/_all/_settings'
@@ -29,7 +27,7 @@ class Indexer(object):
         data = '''{"index.blocks.read_only_allow_delete": false}'''
         requests.put(url, headers=headers, data=data)
 
-    def index(self, abspath):    
+    def index(self, abspath, text_content=None, soundex_list=None, img_json=None):    
         cpt = [abspath]
         new_cpt = [x for x in cpt if x.endswith(tuple(constants.IMAGE_FORMATS)) or x.endswith(tuple(constants.DOC_FORMATS))]
 
@@ -42,7 +40,9 @@ class Indexer(object):
                 ext_tmp_lower = ext_tmp.lower()
                 md5_digest = Utility.hash_md5(abspath)
 
-                text_content, soundex_list, img_json = self.ex.process(abspath)
+                if (text_content is None) or (soundex_list is None) or (img_json is None):
+                    text_content, soundex_list, img_json, _ = self.ex.process(abspath)
+                    del _
 
                 self.disable_readonly_mode()
 
