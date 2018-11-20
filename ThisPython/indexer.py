@@ -42,7 +42,7 @@ class Indexer(object):
                 ext_tmp_lower = ext_tmp.lower()
                 md5_digest = Utility.hash_md5(abspath)
 
-                text_content, img_json = self.ex.process(abspath)
+                text_content, soundex_list, img_json = self.ex.process(abspath)
 
                 self.disable_readonly_mode()
 
@@ -51,20 +51,19 @@ class Indexer(object):
                 self.es.index(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                         "md5_hash": md5_digest,
                         "content": text_content,
-                        "keyword": [],
+                        "soundex_keyword": soundex_list,
                         "tag": img_json,
                         "file_name": os.path.basename(path),
                         "path_name": abspath,
                         "file_type": ext_tmp,
                         "last_edit_date": datetime.now(),
-                        "file_owner": "",
                         "size_in_byte":os.path.getsize(abspath),
                     }
                 )
                 return True
             except OSError as e:
                 print(str(e))
-                return False
+        return False
 
     def reindex(self, abspath):
         # delete the info first

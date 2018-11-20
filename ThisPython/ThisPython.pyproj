@@ -62,7 +62,6 @@
     </Interpreter>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="app\" />
     <Folder Include="scandoc\" />
     <Folder Include="static\" />
     <Folder Include="templates\" />

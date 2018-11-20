@@ -8,6 +8,7 @@ import docx
 import platform
 import tesserocr
 import subprocess
+import jellyfish
 
 class Extractor(object):
     def __init__(self):
@@ -88,4 +89,10 @@ class Extractor(object):
         else:
             pass
 
-        return full_text_data, img_json
+        soundex_list = []
+        splitted_full_text = full_text_data.split() 
+
+        for word in splitted_full_text:
+            soundex_list.append(jellyfish.soundex(word))
+
+        return full_text_data, soundex_list, img_json
