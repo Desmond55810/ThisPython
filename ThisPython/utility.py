@@ -7,6 +7,7 @@ import io
 import os
 import tesserocr
 import subprocess
+from datetime import datetime
 
 class Utility(object):
     @staticmethod
@@ -24,4 +25,8 @@ class Utility(object):
                 md5_tool.update(data)
 
         return md5_tool.hexdigest()
+
+    @staticmethod
+    def print_event(event):
+        print(str(datetime.now()) + " " + str(event))
 

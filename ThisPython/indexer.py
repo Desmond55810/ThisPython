@@ -11,12 +11,16 @@ from extractor import Extractor
 class Indexer(object):
     def __init__(self):
         # by default we connect to localhost:9200
-        self.es = Elasticsearch()
+        self.es = Elasticsearch(timeout=30, max_retries=10, retry_on_timeout=True)
+
         self.ex = Extractor()
 
         # test if the elasticsearch is ok or not
         if not self.es.ping():
             raise ValueError("*** ElasticSearch connection failed ***")
+
+        # only wait for 1 second, regardless of the client's default
+        self.es.cluster.health(wait_for_status='yellow', request_timeout=1)
 
         # ignore 400 cause by IndexAlreadyExistsException when creating an index
         self.es.indices.create(index=constants.ES_URL_INDEX, ignore=400) 

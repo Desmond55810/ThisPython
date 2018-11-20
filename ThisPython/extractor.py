@@ -9,6 +9,7 @@ import platform
 import tesserocr
 import subprocess
 import jellyfish
+from utility import Utility
 
 class Extractor(object):
     # luminoth (image object detection) setup
@@ -58,6 +59,8 @@ class Extractor(object):
         return objects
 
     def process(self, abspath):
+        Utility.print_event("Process " + str(os.getpid()) + ": Process file \"" + abspath + "\"")
+
         root_tmp, ext_tmp = os.path.splitext(abspath)
         ext_tmp_lower = ext_tmp.lower()
 

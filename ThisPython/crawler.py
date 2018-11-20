@@ -6,7 +6,7 @@ import time
 import sys
 from extractor import Extractor
 from indexer import Indexer
-
+from utility import Utility
 from datetime import datetime
 
 from watchdog.events import PatternMatchingEventHandler
@@ -15,10 +15,12 @@ import os
 import platform
 import sys
 import time
+from abc import ABCMeta, abstractmethod
 
-class Crawler(object):
+class Crawler(metaclass=ABCMeta):
     idx = Indexer()
 
+    @abstractmethod
     def start():
         raise NotImplementedError('This is an "abstract" method!')
 
@@ -34,19 +36,30 @@ class FileCrawler(Crawler):
                 yield os.path.abspath(os.path.join(dirpath, filename))
 
     def start(self):
-        print("Make a quick scan and index files in the path \"" + self.path + "\"")
+        Utility.print_event("Make a quick scan and index files in the path \"" + self.path + "\"")
+        file_list = []
+
+        for item in self.walk_dir():
+            if Crawler.idx.check_db_md5_exist(item):
+                Utility.print_event("File \"" + item + "\" exists in DB, skip.")
+            elif(item.endswith(tuple(constants.IMAGE_FORMATS)) or item.endswith(tuple(constants.DOC_FORMATS))):
+                file_list.append(item)
+            else:
+                Utility.print_event("File \"" + item + "\" not supported, skip.")
+
         with concurrent.futures.ProcessPoolExecutor(4) as executor: #use all available cores
-            future_results = {executor.submit(self.extractor.process, item): item for item in self.walk_dir() if (not Crawler.idx.check_db_md5_exist(item)) and (item.endswith(tuple(constants.IMAGE_FORMATS)) or item.endswith(tuple(constants.DOC_FORMATS)))}
+            future_results = {executor.submit(self.extractor.process, item): item for item in file_list}
             for future in concurrent.futures.as_completed(future_results):
                 text, soundex, tag, abspath = future.result()
                 Crawler.idx.index(abspath, text, soundex, tag)
+                Utility.print_event("File \"" + abspath + "\" indexed.")
+                
 
 class EventCrawler(Crawler):
     def __init__(self, path):
-        self.event_handler = FileEventHandler(patterns=["*"])
+        self.event_handler = FileEventHandler(Crawler.idx, patterns=["*"])
         self.observer = Observer()
         self.observer.schedule(self.event_handler, path=path, recursive=True)
-        self.indexer = Crawler.idx
 
     # Call watchdog in main thread only. 
     # If call in seperate thread/process,
@@ -56,7 +69,7 @@ class EventCrawler(Crawler):
         self.observer.start()
 
 class FileEventHandler(PatternMatchingEventHandler):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, indexer, *args, **kwargs):
         super(FileEventHandler, self).__init__(*args, **kwargs)
 
         # event.event_type
@@ -66,7 +79,7 @@ class FileEventHandler(PatternMatchingEventHandler):
         # event.src_path
         #     path/to/observed/file
 
-        self.indexer = Indexer()
+        self.indexer = indexer
 
         # dont let same event(refer to same file) fire mutiple time
         self.last_file_modified = None
@@ -82,7 +95,7 @@ class FileEventHandler(PatternMatchingEventHandler):
 
         if not os.path.exists(path):
             self.last_file_modified = None
-            self.print_event("File \"" + path + "\" no longer exists, probably deleted or moved")
+            Utility.print_event("File \"" + path + "\" no longer exists, probably deleted or moved.")
             return
         else:
             pass
@@ -104,21 +117,21 @@ class FileEventHandler(PatternMatchingEventHandler):
 
             hit_path_total = self.indexer.check_db_path_exist(path)
             hit_md5_total = self.indexer.check_db_md5_exist(path)
-
-            if (hit_path_total >= 1) and (hit_md5_total <= 0):
+            if (hit_path_total >= 1) and (hit_md5_total >= 1):
+                # deal with file timestamp changing
+                Utility.print_event(event)
+                Utility.print_event("File \"" + path + "\" exists in database, skip.")
+            elif (hit_path_total >= 1) and (hit_md5_total <= 0):
                 # deal with content change
-                self.print_event(event)
+                Utility.print_event(event)
                 self.indexer.reindex(path)
-                self.print_event("File \"" + path + "\" reindexed.")
+                Utility.print_event("File \"" + path + "\" reindexed.")
             elif (hit_path_total <= 0) and (hit_md5_total <= 0):
                 # deal with new file
-                self.print_event(event)
+                Utility.print_event(event)
                 self.indexer.index(path)
-                self.print_event("File \"" + path + "\" indexed.")
+                Utility.print_event("File \"" + path + "\" indexed.")
             else:
-                # deal with file timestamp changing
-                # do nothing
-
                 # deal with moved file
                 # do trigger delete event and then modified event
                 pass
@@ -140,15 +153,9 @@ class FileEventHandler(PatternMatchingEventHandler):
             if (hit_path_total >= 1):
                 self.print_event(event)
                 self.indexer.unindex(path)
-                self.print_event("File \"" + path + "\" deindexed.")
+                Utility.print_event("File \"" + path + "\" deindexed.")
             else:
-                self.print_event("File \"" + path + "\" deleted, but there is no record in database to be removed")
+                Utility.print_event("File \"" + path + "\" deleted, but there is no record in database to be removed")
         else:
             pass
         self.last_file_deleted = None
-
-    def print_event(self, event):
-        print(str(datetime.now()) + " " + str(event))
-
-    def scan_through(self, path):
-        pass
