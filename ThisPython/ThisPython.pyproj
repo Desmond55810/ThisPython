@@ -59,6 +59,7 @@
     </Interpreter>
   </ItemGroup>
   <ItemGroup>
+	<Folder Include="poppler\" />
     <Folder Include="scandoc\" />
     <Folder Include="static\" />
     <Folder Include="templates\" />

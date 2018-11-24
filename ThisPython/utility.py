@@ -1,13 +1,5 @@
-from luminoth.tools.checkpoint import get_checkpoint_config
-from luminoth.utils.predicting import PredictorNetwork
-from PIL import Image as ImagePIL
-import constants
 import hashlib
-import io
-import os
-import tesserocr
-import subprocess
-from datetime import datetime
+import time
 
 class Utility(object):
     @staticmethod
@@ -16,7 +8,7 @@ class Utility(object):
         BUF_SIZE = 65536  # lets read stuff in 64kb chunks!
 
         md5_tool = hashlib.md5()
-
+        
         with open(file=abspath, mode='rb') as f:
             while True:
                 data = f.read(BUF_SIZE)
@@ -28,5 +20,5 @@ class Utility(object):
 
     @staticmethod
     def print_event(event):
-        print(str(datetime.now()) + " " + str(event))
+        print(str(time.strftime("%Y-%m-%d %H:%M")) + " " + str(event))
 

@@ -1,12 +1,10 @@
+from datetime import datetime
+from elasticsearch import Elasticsearch, ElasticsearchException
+from extractor import Extractor
+from utility import Utility
+import constants
 import os
 import requests
-from utility import Utility
-from datetime import datetime
-from elasticsearch import Elasticsearch
-from multiprocessing.pool import ThreadPool
-from multiprocessing import Pool
-import constants
-from extractor import Extractor
 
 class Indexer(object):
     def __init__(self):
@@ -19,8 +17,8 @@ class Indexer(object):
         if not self.es.ping():
             raise ValueError("*** ElasticSearch connection failed ***")
 
-        # only wait for 1 second, regardless of the client's default
-        self.es.cluster.health(wait_for_status='yellow', request_timeout=1)
+        # only wait for 10 second, regardless of the client's default
+        self.es.cluster.health(wait_for_status='yellow', request_timeout=10)
 
         # ignore 400 cause by IndexAlreadyExistsException when creating an index
         self.es.indices.create(index=constants.ES_URL_INDEX, ignore=400) 
@@ -31,66 +29,97 @@ class Indexer(object):
         data = '''{"index.blocks.read_only_allow_delete": false}'''
         requests.put(url, headers=headers, data=data)
 
-    def index(self, abspath, text_content=None, soundex_list=None, img_json=None):    
+    def index(self, abspath, text_content=None, soundex_list=None, img_json=None):
         cpt = [abspath]
         new_cpt = [x for x in cpt if x.endswith(tuple(constants.IMAGE_FORMATS)) or x.endswith(tuple(constants.DOC_FORMATS))]
 
         if (len(new_cpt) <= 0):
+            Utility.print_event("Ignore indexing not supported file: " + abspath)
             return False
+        else:
+            pass
 
-        for path in new_cpt:
-            try:
-                root_tmp, ext_tmp = os.path.splitext(abspath)
-                ext_tmp_lower = ext_tmp.lower()
-                md5_digest = Utility.hash_md5(abspath)
+        try:
+            root_tmp, ext_tmp = os.path.splitext(abspath)
+            md5_digest = Utility.hash_md5(abspath)
 
-                if (text_content is None) or (soundex_list is None) or (img_json is None):
-                    text_content, soundex_list, img_json, _ = self.ex.process(abspath)
-                    del _
-
-                self.disable_readonly_mode()
-
-                # dynamic mapping
-                # datetimes will be serialized
-                self.es.index(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
-                        "md5_hash": md5_digest,
-                        "content": text_content,
-                        "soundex_keyword": soundex_list,
-                        "tag": img_json,
-                        "file_name": os.path.basename(path),
-                        "path_name": abspath,
-                        "file_type": ext_tmp,
-                        "last_edit_date": datetime.now(),
-                        "size_in_byte":os.path.getsize(abspath),
-                    }
-                )
+            if self.check_db_md5_exist(abspath):
+                Utility.print_event("Ignore indexing because md5 exist: " + abspath)
                 return True
-            except OSError as e:
-                print(str(e))
-        return False
+
+            ext_tmp = "".join(ext_tmp.split("."))
+
+            if (text_content is None) or (soundex_list is None) or (img_json is None):
+                text_content, soundex_list, img_json, _ = self.ex.process(abspath)
+                del _
+            else:
+                pass
+
+            self.disable_readonly_mode()
+
+            # dynamic mapping
+            # datetimes will be serialized
+            self.es.index(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
+                    "md5_hash": md5_digest,
+                    "content": text_content,
+                    "soundex_keyword": soundex_list,
+                    "tag": img_json,
+                    "file_name": os.path.basename(abspath),
+                    "path_name": abspath,
+                    "file_type": ext_tmp,
+                    "last_edit_date": datetime.now(),
+                    "size_in_byte":os.path.getsize(abspath),
+                }
+            )
+        except ElasticsearchException as e:
+            print(str(e))
+            return False
+        return True
 
     def reindex(self, abspath):
         # delete the info first
-        unindex(abspath)
+        if not self.deindex(abspath):
+            return False
         # then create new one 
-        index(abspath)
+        if not self.index(abspath):
+            return False
+        return True
 
-    def unindex(self, abspath):
-        self.es.delete_by_query(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
-                        "query": {
-                            "match_phrase": { "path_name": abspath }
-                            }
-                        })
+    def deindex(self, abspath):
+        if os.path.exists(abspath):
+            md5_digest = Utility.hash_md5(abspath)
+            try:
+                self.es.delete_by_query(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
+                                "query": {
+                                    "term": { "md5_hash.keyword": md5_digest }
+                                    }
+                                })
+            except ElasticsearchException as e:
+                print(str(e))
+                return False
+        else:
+            pass
+
+        try:
+            self.es.delete_by_query(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
+                            "query": {
+                                "term": { "path_name.keyword": abspath }
+                                }
+                            })
+        except ElasticsearchException as e:
+            print(str(e))
+            return False
+        return True
 
     def check_db_md5_exist(self, abspath):
         try:
             md5_digest = Utility.hash_md5(abspath)
             res = self.es.search(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                             "query": {
-                                "match_phrase": { "md5_hash": md5_digest }
+                                "term": { "md5_hash.keyword": md5_digest }
                                 }
                             })
-        except Exception as e:
+        except ElasticsearchException as e:
             print(str(e))
             return 0
         return res['hits']['total']
@@ -99,10 +128,10 @@ class Indexer(object):
         try:
             res = self.es.search(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                             "query": {
-                                "match_phrase": { "path_name": abspath }
+                                "term": { "path_name.keyword": abspath }
                                 }
                             })
-        except Exception as e:
+        except ElasticsearchException as e:
             print(str(e))
             return 0
         return res['hits']['total']
