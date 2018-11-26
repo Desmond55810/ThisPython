@@ -59,7 +59,7 @@ class DirectoryCrawler(Crawler):
                         Utility.print_event("File indexed: \"" + abspath + "\"")
                     else:
                         Utility.print_event("Error occur when try to index file \"" + abspath + "\"")
-                Utility.print_event("Finish indexing " + len(file_list) + " files")
+                Utility.print_event("Finish indexing " + str(len(file_list)) + " files")
         else:
             Utility.print_event("All files index are up to date")
                 
