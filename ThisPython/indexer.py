@@ -1,18 +1,17 @@
 from datetime import datetime
 from elasticsearch import Elasticsearch, ElasticsearchException
 from extractor import Extractor
+from pathlib import Path
 from utility import Utility
 import constants
 import os
 import requests
 
 class Indexer(object):
+    # by default we connect to localhost:9200
+    es = Elasticsearch(timeout=30, max_retries=10, retry_on_timeout=True)
+    
     def __init__(self):
-        # by default we connect to localhost:9200
-        self.es = Elasticsearch(timeout=30, max_retries=10, retry_on_timeout=True)
-
-        self.ex = Extractor()
-
         # test if the elasticsearch is ok or not
         if not self.es.ping():
             raise ValueError("*** ElasticSearch connection failed ***")
@@ -30,6 +29,7 @@ class Indexer(object):
         requests.put(url, headers=headers, data=data)
 
     def index(self, abspath, text_content=None, soundex_list=None, img_json=None):
+        abspath = Path(abspath).as_posix()
         cpt = [abspath]
         new_cpt = [x for x in cpt if x.endswith(tuple(constants.IMAGE_FORMATS)) or x.endswith(tuple(constants.DOC_FORMATS))]
 
@@ -50,7 +50,8 @@ class Indexer(object):
             ext_tmp = "".join(ext_tmp.split("."))
 
             if (text_content is None) or (soundex_list is None) or (img_json is None):
-                text_content, soundex_list, img_json, _ = self.ex.process(abspath)
+                ex = Extractor()
+                text_content, soundex_list, img_json, _ = ex.process(abspath)
                 del _
             else:
                 pass
@@ -65,7 +66,8 @@ class Indexer(object):
                     "soundex_keyword": soundex_list,
                     "tag": img_json,
                     "file_name": os.path.basename(abspath),
-                    "path_name": abspath,
+                    "path_name": Path(abspath).as_posix(),
+                    "retrieve_path_uri": Path(abspath).as_uri(),
                     "file_type": ext_tmp,
                     "last_edit_date": datetime.now(),
                     "size_in_byte":os.path.getsize(abspath),
@@ -77,6 +79,8 @@ class Indexer(object):
         return True
 
     def reindex(self, abspath):
+        abspath = Path(abspath).as_posix()
+
         # delete the info first
         if not self.deindex(abspath):
             return False
@@ -86,6 +90,7 @@ class Indexer(object):
         return True
 
     def deindex(self, abspath):
+        abspath = Path(abspath).as_posix()
         if os.path.exists(abspath):
             md5_digest = Utility.hash_md5(abspath)
             try:
@@ -112,6 +117,7 @@ class Indexer(object):
         return True
 
     def check_db_md5_exist(self, abspath):
+        abspath = Path(abspath).as_posix()
         try:
             md5_digest = Utility.hash_md5(abspath)
             res = self.es.search(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
@@ -125,6 +131,7 @@ class Indexer(object):
         return res['hits']['total']
 
     def check_db_path_exist(self, abspath):
+        abspath = Path(abspath).as_posix()
         try:
             res = self.es.search(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                             "query": {

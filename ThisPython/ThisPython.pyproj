@@ -59,13 +59,16 @@
     </Interpreter>
   </ItemGroup>
   <ItemGroup>
-	<Folder Include="poppler\" />
+    <Folder Include="poppler\" />
     <Folder Include="scandoc\" />
     <Folder Include="static\" />
     <Folder Include="templates\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="config.json">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="ubuntu-lib-install.sh">
       <SubType>Code</SubType>
     </Content>
     <Content Include="static\theme.css">

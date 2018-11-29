@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from extractor import Extractor
 from indexer import Indexer
+from pathlib import Path
 from utility import Utility
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
@@ -12,13 +13,15 @@ import sys
 import time
 
 class Crawler(metaclass=ABCMeta):
-    idx = Indexer()
+    indexer = Indexer()
 
     @abstractmethod
     def start():
         raise NotImplementedError('This is an "abstract" method!')
 
-class DirectoryCrawler(Crawler):
+class FileCrawler(Crawler):
+    processor_count = 1
+
     def __init__(self, path):
         self.extractor = Extractor()
         self.path = path
@@ -33,12 +36,13 @@ class DirectoryCrawler(Crawler):
         Utility.print_event("Index files in the directory: \"" + self.path + "\"")
         file_list = []
         for item in self.walk_dir():
-            if Crawler.idx.check_db_md5_exist(item):
-                if Crawler.idx.check_db_path_exist(item):
-                    Utility.print_event("File exists in DB: \"" + item + "\"")
+            item = Path(item).as_posix()
+            if Crawler.indexer.check_db_md5_exist(item):
+                if Crawler.indexer.check_db_path_exist(item):
+                    Utility.print_event("File exists in DB, skip: \"" + item + "\"")
                 else:
-                    Utility.print_event("File path mismatch, reindex: \"" + item + "\"")
-                    Crawler.idx.deindex(item)
+                    Utility.print_event("File path mismatch in DB, reindex: \"" + item + "\"")
+                    Crawler.indexer.deindex(item)
                     file_list.append(item) 
             elif(item.endswith(tuple(constants.IMAGE_FORMATS)) or item.endswith(tuple(constants.DOC_FORMATS))):
                 # supported file
@@ -47,26 +51,27 @@ class DirectoryCrawler(Crawler):
                 Utility.print_event("File not supported: \"" + item + "\"")
 
         if len(file_list) != 0:
-            # use all available cores
-            with concurrent.futures.ProcessPoolExecutor(2) as executor:
+
+            with concurrent.futures.ProcessPoolExecutor(self.processor_count) as executor:
                 # throw all the path list into the executor
-                future_results = {executor.submit(self.extractor.process, item): item for item in file_list}
+                future_results = {executor.submit(Crawler.indexer.index, item): item for item in file_list}
+
+                successCount = 0
+                failCount = 0
 
                 for future in concurrent.futures.as_completed(future_results):
-                    # retrive the extracted information from the future
-                    text, soundex, tag, abspath = future.result()
-                    if Crawler.idx.index(abspath, text, soundex, tag):
-                        Utility.print_event("File indexed: \"" + abspath + "\"")
+                    if future.result():
+                        successCount += 1
                     else:
-                        Utility.print_event("Error occur when try to index file \"" + abspath + "\"")
-                Utility.print_event("Finish indexing " + str(len(file_list)) + " files")
+                        failCount += 1
+                Utility.print_event("Finish indexing " + str(successCount) + " files, fail to index " + str(failCount) + " files")
         else:
             Utility.print_event("All files index are up to date")
                 
 
 class EventCrawler(Crawler):
     def __init__(self, path):
-        self.event_handler = FileEventHandler(Crawler.idx, patterns=["*"])
+        self.event_handler = EventHandler(Crawler.indexer, patterns=["*"])
         self.observer = Observer()
         self.observer.schedule(self.event_handler, path=path, recursive=True)
 
@@ -77,9 +82,9 @@ class EventCrawler(Crawler):
         # creates a new thread
         self.observer.start()
 
-class FileEventHandler(PatternMatchingEventHandler):
+class EventHandler(PatternMatchingEventHandler):
     def __init__(self, indexer, *args, **kwargs):
-        super(FileEventHandler, self).__init__(*args, **kwargs)
+        super(EventHandler, self).__init__(*args, **kwargs)
 
         # event.event_type
         #     'created' | 'moved' | 'deleted'
@@ -95,10 +100,12 @@ class FileEventHandler(PatternMatchingEventHandler):
         self.last_file_deleted = None
 
     def on_modified(self, event):
-        path = event.src_path
+        path = Path(event.src_path).as_posix()
         evmsg = str(event)
 
         if os.path.isdir(path):
+            Utility.print_event("Path is directory, skip: \"" + path + "\"")
+            self.last_file_modified = None
             return
         else:
             pass
@@ -148,9 +155,11 @@ class FileEventHandler(PatternMatchingEventHandler):
         self.last_file_modified = None
 
     def on_deleted(self, event):
-        path = event.src_path
+        path = Path(event.src_path).as_posix()
         evmsg = str(event)
         if os.path.isdir(path):
+            Utility.print_event("Path is directory, skip: \"" + path + "\"")
+            self.last_file_deleted = None
             return
         else:
             pass
@@ -168,15 +177,15 @@ class FileEventHandler(PatternMatchingEventHandler):
         self.last_file_deleted = None
 
     def on_moved(self, event):
-        src_path = event.src_path
-        dest_path = event.dest_path
+        src_path = Path(event.src_path).as_posix()
+        dest_path = Path(event.dest_path).as_posix()
         evmsg = str(event)
 
         # renamed / moved
         if src_path != dest_path:
             Utility.print_event(evmsg)
             if os.path.isdir(dest_path):
-                directory_crawler = DirectoryCrawler(dest_path)
+                directory_crawler = FileCrawler(dest_path)
                 directory_crawler.start()
             else:
                 self.indexer.deindex(src_path)

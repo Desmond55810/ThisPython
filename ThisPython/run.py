@@ -9,7 +9,7 @@ elif sys.version_info[0] == 2:
 else:
     sys.exit(" * Unknown Python version")
 
-from crawler import Crawler, EventCrawler, DirectoryCrawler
+from crawler import Crawler, EventCrawler, FileCrawler
 from elasticsearch import Elasticsearch
 from frontend import flaskThread
 import json
@@ -21,18 +21,21 @@ import time
 
 def load_json_config():
     file = 'config.json'
-    key = 'monitor_path'
+    path_key = 'monitor_path'
+    processor_key = "processor_count"
     if (not os.path.exists(file)) or (os.path.getsize(file) <= 0):
         # create a default config
-        config = {key: ""}
+        config = {path_key: "C:/ThisIsExamplePath/YourDocumentsDirectory", processor_key: "2"}
         with open(file, 'w') as f:
             json.dump(config, f)
-        sys.exit(" ! Please setup the config.json to specify the monitor directory")
+        sys.exit(" ! Please configurate the config.json")
     else:
         with open(file, 'r') as f:
             config = json.load(f, strict=False)
-        if (key not in config) or (len(config[key]) == 0) or (config[key] == None):
-            sys.exit(" ! config.json -> " + key +": No target in given data")
+        if (path_key not in config) or (len(config[path_key]) == 0) or (config[path_key] == None):
+            sys.exit(" ! config.json -> " + path_key +": No target in given data")
+        elif (processor_key not in config) or (len(config[processor_key]) == 0) or (config[processor_key] == None):
+            sys.exit(" ! config.json -> " + processor_key +": No target in given data")
         else:
             pass
     return config
@@ -69,6 +72,7 @@ if __name__ == "__main__":
     check_programs()
     config = load_json_config()
     path = config["monitor_path"]
+    processor_count = int(config["processor_count"])
     if not os.path.exists(path):
         sys.exit(" ! The system cannot find the path: \"" + path + "\"")
     elif not os.path.isdir(path):
@@ -82,7 +86,8 @@ if __name__ == "__main__":
 
     try:
         event_crawler = EventCrawler(path)
-        directory_crawler = DirectoryCrawler(path)
+        FileCrawler.processor_count = processor_count
+        directory_crawler = FileCrawler(path)
         print(" * Crawler and ElasticSearch components are ready")
     except ValueError as e:
         print(str(e))
