@@ -47,8 +47,6 @@ class Indexer(object):
                 Utility.print_event("Ignore indexing because md5 exist: " + abspath)
                 return True
 
-            ext_tmp = "".join(ext_tmp.split("."))
-
             if (text_content is None) or (soundex_list is None) or (img_json is None):
                 ex = Extractor()
                 text_content, soundex_list, img_json, _ = ex.process(abspath)
