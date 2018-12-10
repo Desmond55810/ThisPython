@@ -51,7 +51,6 @@ class FileCrawler(Crawler):
                 Utility.print_event("File not supported: \"" + item + "\"")
 
         if len(file_list) != 0:
-
             with concurrent.futures.ProcessPoolExecutor(self.processor_count) as executor:
                 # throw all the path list into the executor
                 future_results = {executor.submit(Crawler.indexer.index, item): item for item in file_list}

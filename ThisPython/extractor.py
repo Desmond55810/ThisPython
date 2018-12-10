@@ -58,7 +58,7 @@ class Extractor(object):
         objects = Extractor.predictor_network.predict_image(image)
         return objects
 
-    def process(self, abspath):
+    def extract(self, abspath):
         Utility.print_event("P" + str(os.getpid()) + ": Process file \"" + abspath + "\"")
 
         root_tmp, ext_tmp = os.path.splitext(abspath)

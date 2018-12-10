@@ -28,7 +28,7 @@ class Indexer(object):
         data = '''{"index.blocks.read_only_allow_delete": false}'''
         requests.put(url, headers=headers, data=data)
 
-    def index(self, abspath, text_content=None, soundex_list=None, img_json=None):
+    def index(self, abspath):
         abspath = Path(abspath).as_posix()
         cpt = [abspath]
         new_cpt = [x for x in cpt if x.endswith(tuple(constants.IMAGE_FORMATS)) or x.endswith(tuple(constants.DOC_FORMATS))]
@@ -47,12 +47,8 @@ class Indexer(object):
                 Utility.print_event("Ignore indexing because md5 exist: " + abspath)
                 return True
 
-            if (text_content is None) or (soundex_list is None) or (img_json is None):
-                ex = Extractor()
-                text_content, soundex_list, img_json, _ = ex.process(abspath)
-                del _
-            else:
-                pass
+            ex = Extractor()
+            text_content, soundex_list, img_json, _ = ex.extract(abspath)
 
             self.disable_readonly_mode()
 
