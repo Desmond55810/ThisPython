@@ -20,10 +20,10 @@ class Extractor(object):
         self.MY_OS_IS = platform.system()
 
     def docx2text(self, filename):
-        with docx.Document(filename) as msdocx:
-            fullText = []
-            for para in msdocx.paragraphs:
-                fullText.append(para.text)
+        msdocx = docx.Document(filename)
+        fullText = []
+        for para in msdocx.paragraphs:
+            fullText.append(para.text)
         return '\n'.join(fullText)
 
     def pdf2img(self, abspath):
