@@ -1,27 +1,23 @@
 {% extends 'layout.html' %}
-{% block content %}
-	<!-- NAVIGATION BAR -->
-	<nav id="nav_bar">
-		<ul>
-			<li><a href="{{ url_for('index') }}">Search</a></li>
-			<li><a href="#">Settings</a></li>
-		</ul>
-	</nav>
+{% block head %}
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='theme.css') }}">
+{% endblock head %}
 
-	<!-- GOOGLE IMG -->  
-	<div class="google">
-		<img id="google_logo" src="data:image/png;base64,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" alt=" photo google-logo_zpspkcztsjo.png"/>
+{% block content %}
+	<!-- logo -->  
+	<div class="search">
+	<img id="search-logo" src="{{ url_for('static', filename='search-logo.png') }}" alt="Search Logo"/>
 	</div>
     
-	<!-- FORM SEARCH -->  
+	<!-- form search -->  
 	<div class="form">  
 		<form action="{{ url_for('search_result') }}" method="get">
 		<label for="form-search"></label>
 		<input type="text" name="q" id="form-search" placeholder="Search Documents" required>
 
-		<!-- BUTTONS -->
-		<div class= "buttons">  
-			<input type="submit" value="Elastic Search" id="google_search">
+		<!-- button -->
+		<div class= "button">  
+			<input type="submit" value="Search" id="button-search">
 		</div>
 		</form>
 	</div>   

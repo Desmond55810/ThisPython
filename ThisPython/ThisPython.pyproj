@@ -68,7 +68,10 @@
     <Content Include="config.json">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="ubuntu-lib-install.sh">
+    <Content Include="static\navbar.css">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="static\search.css">
       <SubType>Code</SubType>
     </Content>
     <Content Include="static\theme.css">

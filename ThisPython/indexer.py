@@ -6,6 +6,12 @@ from utility import Utility
 import constants
 import os
 import requests
+from enum import Enum     # for enum34, or the stdlib version
+
+class ProcessType(Enum):
+    index = 1
+    reindex = 2
+    deindex = 3
 
 class Indexer(object):
     # by default we connect to localhost:9200
@@ -28,36 +34,79 @@ class Indexer(object):
         data = '''{"index.blocks.read_only_allow_delete": false}'''
         requests.put(url, headers=headers, data=data)
 
+    # process the file by index/reindex
+    # if the caller need to deindex file, the caller must specify it.
+    def process(self, path, process_type=ProcessType['reindex']):
+        if (not os.path.exists(path)) and (process_type != ProcessType['deindex']):
+            Utility.print_event("File does not exist: " + path)
+            return
+
+        if (not Utility.is_file_supported(path)) or (os.path.isdir(path)):
+            Utility.print_event("File not supported: " + path)
+            return
+
+        if process_type == ProcessType['index'] or process_type == ProcessType['reindex']:
+            hit_path_total = self.check_db_path_exist(path)
+            hit_md5_total = self.check_db_md5_exist(path)
+
+            if (hit_path_total >= 1) and (hit_md5_total >= 1):
+                # deal with file timestamp changing
+                Utility.print_event("File index exists in DB, skip: " + path)
+                # what to do with duplicate files with different name?
+            elif (hit_path_total >= 1) and (hit_md5_total <= 0):
+                # deal with content change
+                Utility.print_event("File content changed, attempt to reindex: " + path)
+                if self.reindex(path, is_md5_changed=True):
+                    Utility.print_event("File reindexed: " + path)
+                else:
+                    Utility.print_event("Fail to reindex file: " + path)
+            elif (hit_path_total <= 0) and (hit_md5_total >= 1):
+                # deal with path changes
+                Utility.print_event("File path mismatch in DB, attempt to reindex: " + path)
+                if self.reindex(path, is_md5_changed=False):
+                    Utility.print_event("File reindexed: " + path)
+                else:
+                    Utility.print_event("Fail to reindex file: " + path)
+            elif (hit_path_total <= 0) and (hit_md5_total <= 0):
+                # deal with new file
+                Utility.print_event("Indexing new file: " + path)
+                if self.index(path):
+                    Utility.print_event("File indexed: " + path)
+                else:
+                    Utility.print_event("Fail to index file: " + path)
+            else:
+                Utility.print_event("Error occur in on_modfied event: " + path)
+        elif process_type == ProcessType['deindex']:
+            hit_path_total = self.check_db_path_exist(path)
+            if (hit_path_total >= 1):
+                self.deindex(path)
+                Utility.print_event("File deindexed: " + path)
+            else:
+                Utility.print_event("File deleted, but no record in DB to be removed: " + path)
+        else:
+            Utility.print_event("Error: unknown process type is used in indexer.py")
+
     def index(self, abspath):
         abspath = Path(abspath).as_posix()
-        cpt = [abspath]
-        new_cpt = [x for x in cpt if x.endswith(tuple(constants.IMAGE_FORMATS)) or x.endswith(tuple(constants.DOC_FORMATS))]
-
-        if (len(new_cpt) <= 0):
-            Utility.print_event("Ignore indexing not supported file: " + abspath)
-            return False
-        else:
-            pass
 
         try:
             root_tmp, ext_tmp = os.path.splitext(abspath)
             md5_digest = Utility.hash_md5(abspath)
 
-            if self.check_db_md5_exist(abspath):
-                Utility.print_event("Ignore indexing because md5 exist: " + abspath)
-                return True
-
             ex = Extractor()
-            text_content, soundex_list, img_json, _ = ex.extract(abspath)
+
+            try:
+                text_content, img_json = ex.extract(abspath)
+            except Exception as ex:
+                Utility.print_event("Error occur when extract information: " + abspath)
+                return False
 
             self.disable_readonly_mode()
 
             # dynamic mapping
             # datetimes will be serialized
-            self.es.index(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
-                    "md5_hash": md5_digest,
+            self.es.index(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, id=md5_digest, body={
                     "content": text_content,
-                    "soundex_keyword": soundex_list,
                     "tag": img_json,
                     "file_name": os.path.basename(abspath),
                     "path_name": Path(abspath).as_posix(),
@@ -72,37 +121,54 @@ class Indexer(object):
             return False
         return True
 
-    def reindex(self, abspath):
+    def reindex(self, abspath, is_md5_changed):
         abspath = Path(abspath).as_posix()
+        if is_md5_changed:
+            # delete the old info
+            self.deindex(abspath)
+            # then create new one 
+            return self.index(abspath)
+        else:
+            # md5 unchanged but path changed
+            try:
+                root_tmp, ext_tmp = os.path.splitext(abspath)
+                md5_digest = Utility.hash_md5(abspath)
+                self.disable_readonly_mode()
 
-        # delete the info first
-        if not self.deindex(abspath):
-            return False
-        # then create new one 
-        if not self.index(abspath):
-            return False
+                # partial update
+                self.es.update(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, id=md5_digest, body={
+                        "doc": {
+                            "file_name": os.path.basename(abspath),
+                            "path_name": Path(abspath).as_posix(),
+                            "retrieve_path_uri": Path(abspath).as_uri(),
+                            "file_type": ext_tmp,
+                            "last_edit_date": datetime.now(),
+                        }
+                    }
+                )
+            except ElasticsearchException as e:
+                print(str(e))
+                return False
         return True
 
     def deindex(self, abspath):
         abspath = Path(abspath).as_posix()
+        # first, remove by md5 if possible
         if os.path.exists(abspath):
             md5_digest = Utility.hash_md5(abspath)
             try:
-                self.es.delete_by_query(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
-                                "query": {
-                                    "term": { "md5_hash.keyword": md5_digest }
-                                    }
-                                })
+                self.es.delete(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, ignore=[404], id=md5_digest)
             except ElasticsearchException as e:
                 print(str(e))
                 return False
         else:
             pass
 
+        # then, remove by path if any
         try:
             self.es.delete_by_query(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                             "query": {
-                                "term": { "path_name.keyword": abspath }
+                                "match": { "path_name.keyword": abspath }
                                 }
                             })
         except ElasticsearchException as e:
@@ -116,7 +182,7 @@ class Indexer(object):
             md5_digest = Utility.hash_md5(abspath)
             res = self.es.search(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                             "query": {
-                                "term": { "md5_hash.keyword": md5_digest }
+                                "match": { "_id": md5_digest }
                                 }
                             })
         except ElasticsearchException as e:
@@ -129,7 +195,7 @@ class Indexer(object):
         try:
             res = self.es.search(index=constants.ES_URL_INDEX, doc_type=constants.ES_DOC_TYPE, body={
                             "query": {
-                                "term": { "path_name.keyword": abspath }
+                                "match": { "path_name.keyword": abspath }
                                 }
                             })
         except ElasticsearchException as e:

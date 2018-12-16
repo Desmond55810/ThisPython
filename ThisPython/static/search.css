@@ -1,0 +1,107 @@
+/* override form styling*/
+.form {
+	background-color: #FBD0AF;
+	padding: 0.5em;
+	padding-left: 5em;
+	text-align: left;
+}
+
+#form-search { 
+	width: 28em;
+	line-height: 32px;
+	padding: 8px 8px;
+}
+
+.button {
+	display: inline;
+}
+
+/* search result related*/
+.meta{
+	padding-top: 1em;
+	padding-left: 5em;
+}
+
+.no-result{
+	font-size: 1.2em;
+}
+
+.frame{
+	padding: 1em;
+	padding-left: 5em;
+	width: 40em;
+	display: block;
+}
+
+.entity{
+	padding-top: 0.5em;
+	padding-bottom: 1.5em;
+	text-align:justify;
+}
+
+.title{
+	padding-bottom: 0.2em;
+	font-size: 1.5em;
+}
+
+.title a{
+	text-decoration: none;
+}
+
+.content{
+	display: flex;
+}
+
+.content-img{
+	display: table-cell;
+    padding: 2mm;
+}
+
+img.fico {
+    width: 20mm;
+}
+
+.content-text{
+	display: table-cell;
+    padding: 2mm;
+	font-size: 1.2em;
+}
+
+div.tag{
+	width: 40em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+div.finfo {
+    padding: 1mm;
+    background-color: #ff900014;
+    color: #8c4f00;
+	font-size: 1.2em;
+}
+
+.pagination{
+	text-align: center;
+	padding-bottom: 2em;
+}
+
+/* Style the buttons */
+.pagination .p-button{
+	border: none;
+	outline: none;
+	padding: 10px 16px;
+	background-color: #f1f1f1;
+	cursor: pointer;
+	font-size: 24px;
+}
+
+/* Style the active class, and buttons on mouse-over */
+.active, .p-button:hover{
+	background-color: #666 !important;
+	color: white !important;
+}
+
+.p-button{
+	text-decoration: none !important;
+}

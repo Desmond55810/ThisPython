@@ -11,7 +11,9 @@ else:
 
 from crawler import Crawler, EventCrawler, FileCrawler
 from elasticsearch import Elasticsearch
-from frontend import flaskThread
+from indexer import Indexer
+from pathlib import Path
+import frontend
 import json
 import os
 import platform
@@ -24,8 +26,8 @@ def load_json_config():
     path_key = 'monitor_path'
     processor_key = "processor_count"
     if (not os.path.exists(file)) or (os.path.getsize(file) <= 0):
-        # create a default config
-        config = {path_key: "C:/ThisIsExamplePath/YourDocumentsDirectory", processor_key: "2"}
+        # create a default config if not exist
+        config = {path_key: "C:/ThisIsExamplePath/UsePosixPathForwardSlash/YourDocumentsDirectory", processor_key: "2"}
         with open(file, 'w') as f:
             json.dump(config, f)
         sys.exit(" ! Please configurate the config.json")
@@ -40,10 +42,11 @@ def load_json_config():
             pass
     return config
 
+# check if dependency programs are working
 def check_programs():
     MY_OS_IS = platform.system()
 
-    # pdf to image
+    # check poppler program
     try:
         if (MY_OS_IS == "Linux"):
             has_file = shutil.which("pdftoppm")
@@ -55,44 +58,54 @@ def check_programs():
         if has_file:
             print(' * Found pdftoppm')
         else:
-            sys.exit(" ! Cannot find pdftoppm, please install Poppler");
+            sys.exit(" ! Cannot find pdftoppm, please install Poppler (In ubuntu, sudo apt install poppler-utils)");
     except shutil.Error as e:
         print(str(e))
         sys.exit()
 
-    # elasticseach
-    es = Elasticsearch([{'host': 'localhost', 'port': 9200}]).ping()
+    # TODO: check tesseract-ocr program
+    # sudo apt install tesseract-ocr libtesseract-dev libleptonica-dev
+
+    # check elasticseach program
+    es = Indexer.es.ping()
+
     if es:
         print(' * Connected to Elasticsearch')
     else:
         sys.exit(' ! Not connected to Elasticsearch')
+        
 
 if __name__ == "__main__":
-    
     check_programs()
-    config = load_json_config()
-    path = config["monitor_path"]
-    processor_count = int(config["processor_count"])
-    if not os.path.exists(path):
-        sys.exit(" ! The system cannot find the path: \"" + path + "\"")
-    elif not os.path.isdir(path):
-        sys.exit(" ! Expecting folder/directory path, but a file path is given as the argument: " + path)
-    else:
-        pass
-    
-    threading.Thread(target=flaskThread, args=[path]).start()
 
-    time.sleep(2) # wait flask to start
+    config = load_json_config()
+
+    path = config["monitor_path"]
+    path = Path(path).as_posix()
+
+    processor_count = int(config["processor_count"])
+
+    if not os.path.exists(path):
+        sys.exit(" ! The system cannot find the path: " + path)
+    elif not os.path.isdir(path):
+        sys.exit(" ! Expecting folder/directory path, but a file path is given in the config.json: " + path)
 
     try:
+        file_crawler = FileCrawler(path, processor_count)
         event_crawler = EventCrawler(path)
-        FileCrawler.processor_count = processor_count
-        directory_crawler = FileCrawler(path)
         print(" * Crawler and ElasticSearch components are ready")
     except ValueError as e:
         print(str(e))
         sys.exit(" ! System total failure, quit")
+
+    file_crawler.start() # wait for file crawler crawl all files and process them
+    event_crawler.start() # then start the event crawler, so this avoid conflict
+
+    threading.Thread(target=frontend.startFlask).start() # go live
+    # frontend.startFlask(debug=True) # risk of multiple file watchdogs are running when in debug mode
+
     print(" * System is ready")
 
-    event_crawler.start()
-    directory_crawler.start()
+    # keep main thread alive?
+    while True:
+        time.sleep(1)

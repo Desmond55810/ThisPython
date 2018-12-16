@@ -1,8 +1,77 @@
 {% extends 'layout.html' %}
+
+{% block head %}
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='theme.css') }}">
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='search.css') }}">
+{% endblock head %}
+
 {% block content %}
-	{% for entity in entities %}
-    <p>
-    {{ post.author.username }} says: <b>{{ post.body }}</b>
-    </p>
-    {% endfor %}
+	<div class="form">  
+		<form action="{{ url_for('search_result') }}" method="get">
+		<label for="form-search"></label>
+		<input class="search-bar" type="text" name="q" id="form-search" placeholder="Search Documents" value="{{ q }}" required>
+
+		<!-- button -->
+		<div class= "button">  
+			<input type="submit" value="Search" id="button-search">
+		</div>
+		</form>
+	</div>
+	<div class="meta">About {{ result.hits.total }} results ({{ elapsed_time }} seconds)</div>
+	<div class="frame">
+	{% if result.hits.total == 0 %}
+		<div class="no-result">
+			<p>Your search - <strong>{{q}}</strong> - did not match any documents.</p>
+			<p>Suggestions by Google:</p>
+			<ul>
+				<li>Make sure that all words are spelled correctly.</li>
+				<li>Try different keywords.</li>
+				<li>Try more general keywords.</li>
+			</ul>
+		</div>
+	{% endif %}
+	{% for item in result.hits.hits %}
+		<div class="entity">
+			<div class="title"><a href="{{ item._source.retrieve_path_uri }}">{{ item._source.file_name }}</a></div>
+			<div class="content">
+				<div class="content-img">
+				{% if item._source.file_type in doc_format %}
+					<img src="{{ url_for('static', filename='doc-icon.png') }}" class="fico" alt="file icon">
+				{% elif item._source.file_type in img_format %}
+					<img src="{{ url_for('static', filename='img-icon.png') }}" class="fico" alt="file icon">
+				{% endif %}
+				</div>
+				<div class="content-text">
+				{% if item.get("highlight") %}
+					{% for line in item.highlight.content %}
+						{{ line  | safe }}
+					{% endfor %}
+				{% else %}
+					<div class="tag">
+						{% for tag in item._source.tag %}
+							{% for thing in tag %}
+								{{ thing.label }}
+							{% endfor %}
+						{% endfor %}
+					</div>
+				{% endif %}
+				</div>
+			</div>
+			<div class="finfo">
+				<span>Size:&nbsp</span><span>{{ item._source.size_in_byte | filesizeformat }}</span>
+				<span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp</span>
+				<span>Indexed:&nbsp;</span><span>{{ item._source.last_edit_date | datetime }}</span>
+			</div>
+		</div>
+	{% endfor %}
+	<div class="pagination">
+		{%  for n in range(1, total_page+1)   %}
+			{% if n == pageno %}
+				<a class="p-button active" href="{{ url_for('search_result', q=q, pageno=n) }}">{{ n }}</a>
+			{% else %}
+				<a class="p-button" href="{{ url_for('search_result', q=q, pageno=n) }}">{{ n }}</a>
+			{% endif %}
+		{% endfor %}
+	</div>
+	</div>
 {% endblock content %}

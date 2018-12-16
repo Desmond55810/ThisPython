@@ -5,7 +5,6 @@ from utility import Utility
 import constants
 import docx
 import io
-import jellyfish
 import os
 import platform
 import subprocess
@@ -19,6 +18,7 @@ class Extractor(object):
         # cross platform check
         self.MY_OS_IS = platform.system()
 
+    # extract text from microsoft docx file
     def docx2text(self, filename):
         msdocx = docx.Document(filename)
         fullText = []
@@ -26,6 +26,7 @@ class Extractor(object):
             fullText.append(para.text)
         return '\n'.join(fullText)
 
+    # convert all pages in the pdf file into images
     def pdf2img(self, abspath):
         img_list = []
 
@@ -53,47 +54,43 @@ class Extractor(object):
 
         return img_list
 
+    # predict what object is in the image
     def img_predict(self, img_pil):
         image = img_pil.convert('RGB')
         objects = Extractor.predictor_network.predict_image(image)
         return objects
 
+    # extract information (text, object) from file
     def extract(self, abspath):
-        Utility.print_event("P" + str(os.getpid()) + ": Process file \"" + abspath + "\"")
+        Utility.print_event("Process file " + abspath)
 
         root_tmp, ext_tmp = os.path.splitext(abspath)
         ext_tmp_lower = ext_tmp.lower()
 
         img_json = []
-        full_text_data = ""
+        final_text = ""
 
         if (ext_tmp_lower in constants.IMAGE_FORMATS):
+            # identify object and text from image.
             with ImagePIL.open(abspath).convert('RGB') as img_pil:
                 img_json.append(self.img_predict(img_pil))
-                full_text_data = tesserocr.image_to_text(img_pil)
+                final_text = tesserocr.image_to_text(img_pil)
         elif (ext_tmp_lower in constants.DOC_FORMATS) and (ext_tmp_lower.endswith(".pdf")):
             # Setup two lists which will be used to hold our images and final_text
-            pdf_page_img = []
-            pdf_page_text = []
+            img_pages = []
+            text_pages = []
             
-            pdf_page_img = self.pdf2img(abspath)
+            img_pages = self.pdf2img(abspath)
 
-            # Now we just need to run OCR over the image blobs and store all of the 
-            # recognized text in final_text.
-            for img in pdf_page_img:
+            # Now we just need to run OCR over the image blobs
+            for img in img_pages:
                 with ImagePIL.open(io.BytesIO(img)) as img_pil:
                     img_json.append(self.img_predict(img_pil))
-                    pdf_page_text.append(tesserocr.image_to_text(img_pil))
-            full_text_data = ''.join(pdf_page_text)
+                    text_pages.append(tesserocr.image_to_text(img_pil))
+            # store all of the recognized text in final_text.
+            final_text = ''.join(text_pages)
         elif (ext_tmp_lower in constants.DOC_FORMATS) and (ext_tmp_lower.endswith(".docx")):
-            full_text_data = self.docx2text(abspath)
-        else:
-            pass
+            # get all the words in the docx
+            final_text = self.docx2text(abspath)
 
-        soundex_list = []
-        splitted_full_text = full_text_data.split() 
-
-        for word in splitted_full_text:
-            soundex_list.append(jellyfish.soundex(word))
-
-        return full_text_data, soundex_list, img_json, abspath
+        return final_text, img_json

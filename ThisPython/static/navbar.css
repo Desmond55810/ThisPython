@@ -1,0 +1,26 @@
+/* NAV BAR */
+ul.nav_bar {
+	list-style-type: none;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	border: 1px solid #e7e7e7;
+	background-color: #f3f3f3;
+}
+
+li.nav-links{
+	float: left;
+}
+
+li.nav-links a{
+	display: block;
+	color: #666;
+	text-align: center;
+	padding: 14px 16px;
+	text-decoration: none;
+}
+
+li.nav-links a:hover {
+	color: white;
+	background-color: #4CAF50;
+}
