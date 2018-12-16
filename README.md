@@ -1,5 +1,5 @@
 # ThisPython
-The complete list of python library dependencies can be found in directory /ThisPython/venv/required-libs.txt</br></br>
+The complete list of python library dependencies can be found in /ThisPython/venv/required-libs.txt</br></br>
 Python library dependencies:
 * tensorflow
 * luminoth
