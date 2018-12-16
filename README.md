@@ -1,5 +1,8 @@
 # ThisPython
 The complete list of python library dependencies can be found in /ThisPython/venv/required-libs.txt</br></br>
+
+/ThisPython/run.py is the main entry point of the program</br></br>
+
 Python library dependencies:
 * tensorflow
 * luminoth
